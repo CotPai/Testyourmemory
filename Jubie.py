@@ -123,7 +123,7 @@ topics_data = {
 }
 
 # ==== GIAO DIỆN ====
-st.set_page_config(page_title="Luyện trí nhớ", layout="centered")
+st.set_page_config(page_title="Jubie", layout="centered")
 st.title("🧠 Luyện trí nhớ theo chủ đề")
 
 # Chọn chủ đề ngẫu nhiên nếu chưa chọn chủ đề
