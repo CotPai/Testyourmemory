@@ -123,57 +123,57 @@ topics_data = {
 }
 
 # ==== GIAO DIỆN ====
-st.set_page_config(page_title="Jubie", layout="centered")
+st.set_page_config(page_title="Luyện trí nhớ", layout="centered")
 st.title("🧠 Luyện trí nhớ theo chủ đề")
 
-# Chọn chủ đề ngẫu nhiên nếu chưa chọn chủ đề
-if 'selected_topic' not in st.session_state:
-    st.session_state.selected_topic = random.choice(list(topics_data.keys()))
+# Chọn chủ đề với key để tự động lưu vào session_state
+selected_topic = st.selectbox(
+    "📚 Chọn một chủ đề",
+    list(topics_data.keys()),
+    key="selected_topic"
+)
 
-# Cho phép người dùng thay đổi chủ đề
-selected_topic = st.selectbox("📚 Chọn một chủ đề", list(topics_data.keys()), index=list(topics_data.keys()).index(st.session_state.selected_topic))
-
-# ==== RESET khi bắt đầu lại ====
-if st.button("🔄 Bắt đầu lại"):
-    # Reset tất cả các giá trị trong session state khi bấm bắt đầu lại
-    st.session_state.selected_topic = st.session_state.selected_topic  # Giữ nguyên chủ đề hiện tại
-    st.session_state.shuffled = random.sample(topics_data[st.session_state.selected_topic], len(topics_data[st.session_state.selected_topic]))
-    st.session_state.selected_positions = [None] * 7  # Reset các vị trí của các mô tả
+# Khi đổi chủ đề, khởi tạo lại shuffled và các biến liên quan
+if 'last_topic' not in st.session_state or st.session_state.last_topic != selected_topic:
+    st.session_state.last_topic = selected_topic
+    st.session_state.shuffled = random.sample(
+        topics_data[selected_topic],
+        len(topics_data[selected_topic])
+    )
+    st.session_state.selected_positions = [None] * len(topics_data[selected_topic])
     st.session_state.show_results = False
 
-# Dữ liệu chủ đề đã chọn
+# Nút bắt đầu lại: chỉ xáo lại shuffled và reset chọn
+if st.button("🔄 Bắt đầu lại"):
+    st.session_state.shuffled = random.sample(
+        topics_data[selected_topic],
+        len(topics_data[selected_topic])
+    )
+    st.session_state.selected_positions = [None] * len(topics_data[selected_topic])
+    st.session_state.show_results = False
+
 correct_order = topics_data[selected_topic]
 
-# Reset khi đổi chủ đề (xử lý để tránh bị reload)
-if st.session_state.get("last_topic") != selected_topic:
-    st.session_state.last_topic = selected_topic
-    st.session_state.shuffled = random.sample(correct_order, len(correct_order))
-    st.session_state.selected_positions = [None] * 7
-    st.session_state.show_results = False
-
-# Xử lý nút kiểm tra
+# Nút kiểm tra kết quả
 if st.button("✅ Kiểm tra"):
     st.session_state.show_results = True
 
-# Nếu chưa bấm kiểm tra: hiển thị phần chọn vị trí
+# Chưa kiểm tra: hiển thị giao diện chọn vị trí
 if not st.session_state.show_results:
-    st.markdown("### 🔀 Chọn vị trí (1-7) cho từng mô tả:")
-
+    st.markdown("### 🔀 Chọn vị trí (1-{0}) cho từng mô tả:".format(len(correct_order)))
     all_filled = True
-    user_sequence = [None] * 7
+    user_sequence = [None] * len(correct_order)
 
     for i, desc in enumerate(st.session_state.shuffled):
         cols = st.columns([6, 2])
         cols[0].markdown(f"**{desc}**")
 
-        current_value = st.session_state.selected_positions[i]
-        options = [""] + [str(j) for j in range(1, 8)]
-
+        options = [""] + [str(j) for j in range(1, len(correct_order) + 1)]
         pos = cols[1].selectbox(
             "Vị trí",
             options=options,
             key=f"select_{i}",
-            index=options.index(str(current_value)) if current_value is not None else 0,
+            index=options.index(str(st.session_state.selected_positions[i])) if st.session_state.selected_positions[i] else 0,
             label_visibility="collapsed"
         )
 
@@ -182,25 +182,24 @@ if not st.session_state.show_results:
             st.session_state.selected_positions[i] = None
         else:
             val = int(pos)
-            st.session_state.selected_positions[i] = val
+            # kiểm tra trùng
             if user_sequence[val - 1] is not None:
                 st.warning(f"⚠️ Vị trí {val} đã được dùng cho mô tả khác!")
                 all_filled = False
             else:
+                st.session_state.selected_positions[i] = val
                 user_sequence[val - 1] = desc
 
-# Nếu đã bấm kiểm tra: hiển thị kết quả và đáp án đúng
-if st.session_state.show_results:
+# Đã kiểm tra: hiện kết quả
+else:
     st.markdown("### 🎯 Kết quả:")
-
-    user_sequence = [None] * 7
+    user_sequence = [None] * len(correct_order)
     for i, val in enumerate(st.session_state.selected_positions):
-        if val is not None and 1 <= val <= 7:
+        if val is not None and 1 <= val <= len(correct_order):
             user_sequence[val - 1] = st.session_state.shuffled[i]
 
     score = 0
-    for i in range(7):
-        correct_desc = correct_order[i]
+    for i, correct_desc in enumerate(correct_order):
         user_desc = user_sequence[i]
         if user_desc == correct_desc:
             st.success(f"{i+1}. ✅ {user_desc}")
@@ -210,10 +209,8 @@ if st.session_state.show_results:
         else:
             st.error(f"{i+1}. ❌ {user_desc}")
 
-    st.markdown(f"**🎉 Bạn sắp xếp đúng {score}/7 mô tả.**")
-
-    # Hiển thị đáp án đúng dưới cùng, cách nhau không quá xa
+    st.markdown(f"**🎉 Bạn sắp xếp đúng {score}/{len(correct_order)} mô tả.**")
+    
     st.markdown("### 📘 Đáp án đúng là:")
-
     for i, line in enumerate(correct_order, 1):
-        st.markdown(f"{i}. {line}", unsafe_allow_html=True)
+        st.markdown(f"{i}. {line}")
